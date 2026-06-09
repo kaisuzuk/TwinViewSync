@@ -1,0 +1,251 @@
+/* ── Reset / Base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  width: 360px;
+  min-height: 200px;
+}
+
+/* ── App wrapper ───────────────────────────────────────────────────────────── */
+.app {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333360;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #a78bfa;
+  letter-spacing: 0.03em;
+}
+
+/* ── Badge ─────────────────────────────────────────────────────────────────── */
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.05em;
+}
+
+.badge--off {
+  background: #374151;
+  color: #9ca3af;
+}
+
+.badge--on {
+  background: #065f46;
+  color: #6ee7b7;
+}
+
+.badge--paused {
+  background: #78350f;
+  color: #fcd34d;
+}
+
+/* ── Warning banner ─────────────────────────────────────────────────────────── */
+.warning-banner {
+  background: #7c2d12;
+  color: #fed7aa;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── Section ───────────────────────────────────────────────────────────────── */
+.section {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7c83a0;
+}
+
+/* ── Tab card ──────────────────────────────────────────────────────────────── */
+.tab-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a78bfa;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.tab-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-url {
+  font-size: 10px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Control row ───────────────────────────────────────────────────────────── */
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 11px;
+  color: #9ca3af;
+  width: 70px;
+  flex-shrink: 0;
+}
+
+/* ── Select ────────────────────────────────────────────────────────────────── */
+.select {
+  flex: 1;
+  background: #0f172a;
+  color: #e0e0e0;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #7c3aed;
+}
+
+/* ── Input ─────────────────────────────────────────────────────────────────── */
+.input {
+  background: #0f172a;
+  color: #e0e0e0;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-size: 12px;
+  width: 100%;
+}
+
+.input--sm {
+  width: 80px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #7c3aed;
+}
+
+/* ── Slider ────────────────────────────────────────────────────────────────── */
+.slider {
+  flex: 1;
+  accent-color: #7c3aed;
+  cursor: pointer;
+}
+
+.val-label {
+  font-size: 11px;
+  color: #9ca3af;
+  width: 36px;
+  text-align: right;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn-row {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.btn:hover { opacity: 0.85; }
+.btn:active { opacity: 0.7; }
+
+.btn--primary {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.btn--primary.is-active {
+  background: #059669;
+}
+
+.btn--secondary {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.btn--secondary.is-active {
+  background: #0369a1;
+  color: #e0f2fe;
+}
+
+.btn--warn {
+  background: #b45309;
+  color: #fef3c7;
+}
+
+.btn--sm {
+  padding: 3px 8px;
+  font-size: 11px;
+  background: #334155;
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.btn--block {
+  flex: 1;
+}
