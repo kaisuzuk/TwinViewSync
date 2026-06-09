@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TwinView Sync</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">TwinView Sync</h1>
+      <span id="sync-badge" class="badge badge--off">OFF</span>
+    </header>
+
+    <!-- Warning Banner -->
+    <div id="review-warning" class="warning-banner" style="display:none;">
+      ⚠️ Review Mode: クリック同期が有効です。登録・削除等の操作も同期されます。
+    </div>
+
+    <!-- Tab Pairing -->
+    <section class="section">
+      <h2 class="section-title">Tab Pairing</h2>
+      <div class="tab-card">
+        <div class="tab-row">
+          <span class="tab-label">Tab A</span>
+          <div class="tab-info">
+            <span id="tab-a-title" class="tab-title">—</span>
+            <span id="tab-a-url" class="tab-url">—</span>
+          </div>
+          <button id="set-tab-a" class="btn btn--sm">Set Current</button>
+        </div>
+        <div class="tab-row">
+          <span class="tab-label">Tab B</span>
+          <div class="tab-info">
+            <span id="tab-b-title" class="tab-title">—</span>
+            <span id="tab-b-url" class="tab-url">—</span>
+          </div>
+          <button id="set-tab-b" class="btn btn--sm">Set Current</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sync Controls -->
+    <section class="section">
+      <h2 class="section-title">Sync Control</h2>
+
+      <div class="control-row">
+        <label class="control-label">Mode</label>
+        <select id="sync-mode" class="select">
+          <option value="review">Review Mode</option>
+          <option value="replay">Replay Mode</option>
+        </select>
+      </div>
+
+      <div class="control-row">
+        <label class="control-label">Direction</label>
+        <select id="sync-direction" class="select">
+          <option value="A_TO_B">A → B</option>
+          <option value="B_TO_A">B → A</option>
+          <option value="BIDIRECTIONAL">Bidirectional</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button id="sync-toggle" class="btn btn--primary btn--block">Enable Sync</button>
+        <button id="sync-pause" class="btn btn--warn btn--block" style="display:none;">⏸ Pause</button>
+      </div>
+    </section>
+
+    <!-- Grid Overlay -->
+    <section class="section">
+      <h2 class="section-title">Grid Overlay</h2>
+      <div class="control-row">
+        <label class="control-label">Size</label>
+        <select id="grid-size" class="select">
+          <option value="8">8px</option>
+          <option value="10">10px</option>
+          <option value="12">12px</option>
+          <option value="16">16px</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input id="grid-size-custom" type="number" class="input input--sm" min="1" max="200" value="8" style="display:none;" />
+      </div>
+      <div class="control-row">
+        <label class="control-label">Opacity</label>
+        <input id="grid-opacity" type="range" min="0" max="1" step="0.05" value="0.3" class="slider" />
+        <span id="grid-opacity-val" class="val-label">30%</span>
+      </div>
+      <div class="control-row">
+        <label class="control-label">Offset X</label>
+        <input id="grid-offset-x" type="number" class="input input--sm" min="0" max="200" value="0" />
+      </div>
+      <div class="control-row">
+        <label class="control-label">Offset Y</label>
+        <input id="grid-offset-y" type="number" class="input input--sm" min="0" max="200" value="0" />
+      </div>
+      <div class="btn-row">
+        <button id="grid-toggle" class="btn btn--secondary btn--block">Show Grid</button>
+      </div>
+    </section>
+
+    <!-- Compare Overlay -->
+    <section class="section">
+      <h2 class="section-title">Compare Overlay</h2>
+      <div class="control-row">
+        <label class="control-label">Direction</label>
+        <select id="overlay-direction" class="select">
+          <option value="A_TO_B">A → B</option>
+          <option value="B_TO_A">B → A</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label">Opacity</label>
+        <input id="overlay-opacity" type="range" min="0" max="1" step="0.05" value="0.5" class="slider" />
+        <span id="overlay-opacity-val" class="val-label">50%</span>
+      </div>
+      <div class="btn-row">
+        <button id="capture-btn" class="btn btn--secondary">Capture Reference</button>
+        <button id="overlay-toggle" class="btn btn--secondary">Show Overlay</button>
+      </div>
+    </section>
+
+    <!-- Blink Compare -->
+    <section class="section">
+      <h2 class="section-title">Blink Compare</h2>
+      <div class="control-row">
+        <label class="control-label">Interval (ms)</label>
+        <input id="blink-interval" type="number" class="input input--sm" min="100" max="5000" step="100" value="500" />
+      </div>
+      <div class="btn-row">
+        <button id="blink-toggle" class="btn btn--secondary btn--block">Start Blink</button>
+      </div>
+    </section>
+
+  </div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
