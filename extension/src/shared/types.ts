@@ -1,9 +1,6 @@
 // ─── Sync Direction ─────────────────────────────────────────────────────────
 export type SyncDirection = 'A_TO_B' | 'B_TO_A' | 'BIDIRECTIONAL';
 
-// ─── Sync Mode ───────────────────────────────────────────────────────────────
-export type SyncMode = 'review' | 'replay';
-
 // ─── Tab Pair ────────────────────────────────────────────────────────────────
 export interface TabPair {
   tabAId: number | null;
@@ -18,7 +15,6 @@ export interface TabPair {
 export interface SyncState {
   enabled: boolean;
   direction: SyncDirection;
-  mode: SyncMode;
   pair: TabPair;
 }
 

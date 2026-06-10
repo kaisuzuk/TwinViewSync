@@ -28,7 +28,6 @@ export const DEFAULT_BLINK: BlinkSettings = {
 export const DEFAULT_SYNC_STATE: SyncState = {
   enabled: false,
   direction: 'A_TO_B',
-  mode: 'review',
   pair: {
     tabAId: null,
     tabBId: null,

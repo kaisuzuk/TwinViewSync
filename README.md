@@ -83,7 +83,6 @@ npm run dev
 
 | 項目 | 内容 |
 |------|------|
-| Mode | Review Mode（デフォルト）/ Replay Mode |
 | Direction | A → B / B → A / Bidirectional |
 | Enable Sync | 同期のON/OFF |
 | ⏸ Pause | 一時停止（再クリックで再開） |
@@ -91,16 +90,14 @@ npm run dev
 ### 3. 同期確認中の注意
 
 - **Sync ON/OFF状態** はポップアップ右上のバッジで確認できます
-- Review Mode ではクリック同期が有効なため、バナーで警告が表示されます
+- クリック同期が有効なため、バナーで警告が表示されます
 - 登録・削除・送信などの副作用がある操作も同期されます
 
 ---
 
-## Review Mode
+## 同期対象イベント
 
-デフォルトのモードです。レイアウト最終確認用途を想定しています。
-
-**同期対象イベント：**
+レイアウト最終確認用途を想定し、以下のイベントを同期します。
 
 - `mousemove`（ゴーストカーソル表示）
 - `mousedown` / `mouseup`
@@ -112,18 +109,7 @@ npm run dev
 - `input` / `change`
 - `keydown` / `keyup`
 
-> **注意：** Review Mode でも実クリックが相手タブに送信されます。フォーム送信・削除・登録などの操作も同期される可能性があります。
-
----
-
-## Replay Mode
-
-より強い操作再現用途を想定した将来拡張モードです。  
-MVP では Review Mode と同等の動作をします。
-
-**将来対応予定のイベント：**
-
-- `compositionstart` / `compositionupdate` / `compositionend`
+> **注意：** 実クリックが相手タブに送信されます。フォーム送信・削除・登録などの操作も同期される可能性があります。
 
 ---
 
@@ -267,7 +253,7 @@ let applyingRemoteEvent = false
 - **input type="file" は同期不可**（ブラウザのセキュリティ制限）
 - **ブラウザ保護対象イベント（passwordフィールド等）は同期不可**
 - **Compare Overlay は表示領域のみ対象**（スクロール後は再キャプチャが必要）
-- **Review Mode でも click 同期を行うため、登録・削除・送信などの副作用がある操作は注意が必要**
+- **click 同期を行うため、登録・削除・送信などの副作用がある操作は注意が必要**
 
 ### 部分的に対応可能な UI
 
@@ -284,7 +270,7 @@ let applyingRemoteEvent = false
 
 ## 今後の拡張案
 
-- **Replay Mode の完全実装**：`input` / `keydown` / IME イベントの同期
+- **IME イベント同期**：`compositionstart` / `compositionupdate` / `compositionend`
 - **フルページキャプチャ**：スクロール連結によるページ全体のオーバーレイ
 - **差分ハイライト**：ピクセル差分の自動検出と可視化
 - **セッション記録・再生**：操作シーケンスの録画と再生

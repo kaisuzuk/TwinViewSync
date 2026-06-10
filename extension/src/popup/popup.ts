@@ -4,7 +4,7 @@
  * Controls:
  *  - Tab pairing (Set Tab A / Set Tab B)
  *  - Sync Enable/Disable, Pause
- *  - Sync direction / mode
+ *  - Sync direction
  *  - Grid overlay
  *  - Compare Overlay (capture + show/hide)
  *  - Blink Compare
@@ -17,7 +17,6 @@ import type {
   CompareOverlaySettings,
   BlinkSettings,
   SyncDirection,
-  SyncMode,
   GridMessage,
   CompareOverlayMessage,
   BlinkMessage,
@@ -110,9 +109,7 @@ function renderSyncState(state: SyncState): void {
     toggleBtn.classList.add('is-active');
     pauseBtn.style.display = 'block';
     pauseBtn.textContent = '⏸ Pause';
-    if (state.mode === 'review') {
-      warning.style.display = 'block';
-    }
+    warning.style.display = 'block';
   }
 }
 
@@ -258,13 +255,6 @@ async function init(): Promise<void> {
     storage.syncState.pair.tabBTitle = tab.title ?? '';
     await saveStorage(storage);
     renderTabPair(storage.syncState);
-  });
-
-  // ── Sync mode ─────────────────────────────────────────────────────────────
-  $<HTMLSelectElement>('sync-mode').addEventListener('change', async (e) => {
-    storage.syncState.mode = (e.target as HTMLSelectElement).value as SyncMode;
-    await saveStorage(storage);
-    renderSyncState(storage.syncState);
   });
 
   // ── Sync direction ────────────────────────────────────────────────────────
