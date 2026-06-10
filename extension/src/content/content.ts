@@ -14,12 +14,14 @@ import type {
   WheelMessage,
   ScrollMessage,
   DragMessage,
+  FormMessage,
+  KeyboardMessage,
   GridMessage,
   CompareOverlayMessage,
   BlinkMessage,
 } from '../shared/types';
 import { REMOTE_EVENT_FLAG } from '../shared/constants';
-import { loadStorage } from '../shared/messaging';
+import { appendDebugLog, loadStorage } from '../shared/messaging';
 
 // Overlay
 import { initCursorOverlay, moveCursor } from '../overlay/cursorOverlay';
@@ -39,15 +41,22 @@ import { startWheelSync, stopWheelSync } from '../sync/wheelSync';
 import { startDragSync, stopDragSync } from '../sync/dragSync';
 import { startScrollSync, stopScrollSync, applyScrollEvent } from '../sync/scrollSync';
 import { applyClickEvent } from '../sync/clickSync';
+import { startInputSync, stopInputSync, applyFormEvent, applyKeyboardEvent } from '../sync/inputSync';
 
 declare global {
   interface Window {
     __twinViewSyncContentLoaded?: boolean;
+    __twinViewSyncContentVersion?: string;
+    __twinViewSyncCleanup?: () => void;
   }
 }
 
-if (!window.__twinViewSyncContentLoaded) {
+const CONTENT_VERSION = '2026-06-11-target-diagnostics-v5';
+
+if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
+  window.__twinViewSyncCleanup?.();
   window.__twinViewSyncContentLoaded = true;
+  window.__twinViewSyncContentVersion = CONTENT_VERSION;
   bootstrap();
 }
 
@@ -72,7 +81,25 @@ function bootstrap(): void {
     }
   }).catch(() => {/* ignore */});
 
-  chrome.runtime.onMessage.addListener(handleMessage);
+  chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+  window.__twinViewSyncCleanup = () => {
+    stopAllSync();
+    chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+  };
+}
+
+function handleRuntimeMessage(
+  message: ExtensionMessage,
+  _sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void
+): boolean {
+  if (message.type === 'PING') {
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  handleMessage(message);
+  return false;
 }
 
 // ─── Sync control ─────────────────────────────────────────────────────────────
@@ -82,6 +109,7 @@ function startAllSync(): void {
   startWheelSync();
   startDragSync();
   startScrollSync();
+  startInputSync();
 }
 
 function stopAllSync(): void {
@@ -89,6 +117,7 @@ function stopAllSync(): void {
   stopWheelSync();
   stopDragSync();
   stopScrollSync();
+  stopInputSync();
 }
 
 // ─── Apply wheel event ───────────────────────────────────────────────────────
@@ -191,7 +220,22 @@ function handleMessage(message: ExtensionMessage): void {
 
     // ── Scroll ────────────────────────────────────────────────────────────────
     case 'WINDOW_SCROLL': {
-      applyScrollEvent(message as ScrollMessage);
+      const msg = message as ScrollMessage;
+      logApply(msg, applyScrollEvent(msg));
+      break;
+    }
+
+    // ── Input / Keyboard ─────────────────────────────────────────────────────
+    case 'INPUT':
+    case 'CHANGE': {
+      const msg = message as FormMessage;
+      logApply(msg, applyFormEvent(msg));
+      break;
+    }
+    case 'KEY_DOWN':
+    case 'KEY_UP': {
+      const msg = message as KeyboardMessage;
+      logApply(msg, applyKeyboardEvent(msg));
       break;
     }
 
@@ -250,6 +294,7 @@ function handleMessage(message: ExtensionMessage): void {
 
     // ── State change ──────────────────────────────────────────────────────────
     case 'SYNC_STATE_CHANGED': {
+      logApply(message);
       loadStorage().then((storage) => {
         if (storage.syncState.enabled) {
           startAllSync();
@@ -263,4 +308,35 @@ function handleMessage(message: ExtensionMessage): void {
     default:
       break;
   }
+}
+
+function logApply(
+  message: ScrollMessage | FormMessage | KeyboardMessage | ExtensionMessage,
+  result?: string
+): void {
+  let detail: string = message.type;
+  const describeTarget = (target: { tagName: string; id: string; className?: string }): string => {
+    const id = target.id ? `#${target.id}` : '';
+    const className = target.className
+      ? `.${target.className.trim().split(/\s+/).slice(0, 3).join('.')}`
+      : '';
+    return `${target.tagName}${id}${className}`;
+  };
+
+  if (message.type === 'WINDOW_SCROLL') {
+    detail = `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+  } else if (message.type === 'KEY_DOWN' || message.type === 'KEY_UP') {
+    detail = `${message.key} code=${message.code} target=${describeTarget(message.target)}`;
+  } else if (message.type === 'INPUT' || message.type === 'CHANGE') {
+    detail = `target=${describeTarget(message.target)} valueLength=${message.value.length}`;
+  } else if (message.type === 'SYNC_STATE_CHANGED') {
+    detail = `enabled=${message.state.enabled} direction=${message.state.direction}`;
+  }
+
+  appendDebugLog({
+    phase: 'apply',
+    messageType: message.type,
+    sourceTabId: message.sourceTabId,
+    detail: result ? `${detail} -> ${result}` : detail,
+  }).catch(() => {/* ignore */});
 }

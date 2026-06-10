@@ -108,7 +108,9 @@ npm run dev
 - `dblclick`
 - `contextmenu`
 - `wheel`（ダイアログ・テーブル内スクロール）
-- `window scroll`
+- `window scroll` / スクロールコンテナ
+- `input` / `change`
+- `keydown` / `keyup`
 
 > **注意：** Review Mode でも実クリックが相手タブに送信されます。フォーム送信・削除・登録などの操作も同期される可能性があります。
 
@@ -121,8 +123,6 @@ MVP では Review Mode と同等の動作をします。
 
 **将来対応予定のイベント：**
 
-- `input` / `change`
-- `keydown` / `keyup`
 - `compositionstart` / `compositionupdate` / `compositionend`
 
 ---

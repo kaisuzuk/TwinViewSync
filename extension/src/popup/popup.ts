@@ -23,8 +23,9 @@ import type {
   BlinkMessage,
   SyncStateChangedMessage,
   CaptureTabMessage,
+  DebugLogEntry,
 } from '../shared/types';
-import { loadStorage, saveStorage } from '../shared/messaging';
+import { appendDebugLog, clearDebugLogs, loadDebugLogs, loadStorage, saveStorage } from '../shared/messaging';
 
 // ─── DOM helpers ─────────────────────────────────────────────────────────────
 
@@ -59,6 +60,13 @@ async function broadcastToBothTabs(message: object): Promise<void> {
 }
 
 async function ensureContentScript(tabId: number): Promise<boolean> {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    return true;
+  } catch {
+    // No current content-script receiver; inject below.
+  }
+
   try {
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: false },
@@ -190,6 +198,21 @@ function renderAll(): void {
   renderBlink(storage.blink);
 }
 
+function formatLogEntry(entry: DebugLogEntry): string {
+  const time = new Date(entry.ts).toLocaleTimeString();
+  const source = entry.sourceTabId !== undefined ? ` src=${entry.sourceTabId}` : '';
+  const target = entry.targetTabId !== undefined ? ` dst=${entry.targetTabId}` : '';
+  return `${time} [${entry.phase}] ${entry.messageType}${source}${target} ${entry.detail}`;
+}
+
+async function renderDiagnostics(): Promise<void> {
+  const logs = await loadDebugLogs();
+  const latest = logs.slice(-80).reverse();
+  $('diag-log').textContent = latest.length > 0
+    ? latest.map(formatLogEntry).join('\n')
+    : 'No logs';
+}
+
 // ─── Event wiring ─────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
@@ -205,6 +228,7 @@ async function init(): Promise<void> {
     await saveStorage(storage);
   }
   renderAll();
+  await renderDiagnostics();
 
   // ── Set Tab A ────────────────────────────────────────────────────────────
   $('set-tab-a').addEventListener('click', async () => {
@@ -448,6 +472,44 @@ async function init(): Promise<void> {
         type: 'STOP_BLINK',
       };
       await broadcastToTab(targetTabId, msg);
+    }
+  });
+
+  // ── Diagnostics ───────────────────────────────────────────────────────────
+  $('diag-probe').addEventListener('click', async () => {
+    const { tabAId, tabBId } = storage.syncState.pair;
+    const results = await Promise.all([
+      tabAId === null ? Promise.resolve('A:not-set') : ensureContentScript(tabAId).then((ok) => `A:${tabAId}:${ok ? 'ready' : 'failed'}`),
+      tabBId === null ? Promise.resolve('B:not-set') : ensureContentScript(tabBId).then((ok) => `B:${tabBId}:${ok ? 'ready' : 'failed'}`),
+    ]);
+    await appendDebugLog({
+      phase: 'state',
+      messageType: 'SYSTEM',
+      detail: `probe ${results.join(' ')}`,
+    });
+    await renderDiagnostics();
+  });
+
+  $('diag-refresh').addEventListener('click', async () => {
+    await renderDiagnostics();
+  });
+
+  $('diag-clear').addEventListener('click', async () => {
+    await clearDebugLogs();
+    await renderDiagnostics();
+  });
+
+  $('diag-copy').addEventListener('click', async () => {
+    const logs = await loadDebugLogs();
+    const text = logs.map(formatLogEntry).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      $('diag-copy').textContent = 'Copied';
+      setTimeout(() => {
+        $('diag-copy').textContent = 'Copy';
+      }, 900);
+    } catch {
+      $('diag-log').textContent = text || 'No logs';
     }
   });
 }

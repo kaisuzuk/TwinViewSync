@@ -1,6 +1,73 @@
 import type { ExtensionMessage } from './types';
 import type { ExtensionStorage } from './types';
-import { DEFAULT_STORAGE, STORAGE_KEY } from './constants';
+import type { DebugLogEntry } from './types';
+import { DEBUG_LOG_KEY, DEBUG_LOG_LIMIT, DEFAULT_STORAGE, STORAGE_KEY } from './constants';
+
+const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
+  'WINDOW_SCROLL',
+  'KEY_DOWN',
+  'KEY_UP',
+  'INPUT',
+  'CHANGE',
+  'SYNC_STATE_CHANGED',
+]);
+
+function shouldLogMessage(message: ExtensionMessage): boolean {
+  return DIAGNOSTIC_MESSAGE_TYPES.has(message.type);
+}
+
+function describeMessage(message: ExtensionMessage): string {
+  const describeTarget = (target: { tagName: string; id: string; className?: string }): string => {
+    const id = target.id ? `#${target.id}` : '';
+    const className = target.className
+      ? `.${target.className.trim().split(/\s+/).slice(0, 3).join('.')}`
+      : '';
+    return `${target.tagName}${id}${className}`;
+  };
+
+  switch (message.type) {
+    case 'WINDOW_SCROLL':
+      return `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+    case 'KEY_DOWN':
+    case 'KEY_UP':
+      return `${message.key} code=${message.code} target=${describeTarget(message.target)}`;
+    case 'INPUT':
+    case 'CHANGE':
+      return `target=${describeTarget(message.target)} valueLength=${message.value.length}`;
+    case 'SYNC_STATE_CHANGED':
+      return `enabled=${message.state.enabled} direction=${message.state.direction}`;
+    default:
+      return message.type;
+  }
+}
+
+export async function appendDebugLog(
+  entry: Omit<DebugLogEntry, 'id' | 'ts'>
+): Promise<void> {
+  try {
+    const raw = await chrome.storage.local.get(DEBUG_LOG_KEY);
+    const logs = (raw[DEBUG_LOG_KEY] ?? []) as DebugLogEntry[];
+    const next: DebugLogEntry = {
+      ...entry,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      ts: Date.now(),
+    };
+    await chrome.storage.local.set({
+      [DEBUG_LOG_KEY]: [...logs, next].slice(-DEBUG_LOG_LIMIT),
+    });
+  } catch {
+    // Diagnostics must never break sync behavior.
+  }
+}
+
+export async function loadDebugLogs(): Promise<DebugLogEntry[]> {
+  const raw = await chrome.storage.local.get(DEBUG_LOG_KEY);
+  return (raw[DEBUG_LOG_KEY] ?? []) as DebugLogEntry[];
+}
+
+export async function clearDebugLogs(): Promise<void> {
+  await chrome.storage.local.set({ [DEBUG_LOG_KEY]: [] });
+}
 
 /**
  * Send a message to a specific tab's content script.
@@ -17,6 +84,13 @@ export async function sendToTab(tabId: number, message: ExtensionMessage): Promi
  * Send a message to the background service worker.
  */
 export async function sendToBackground(message: ExtensionMessage): Promise<unknown> {
+  if (shouldLogMessage(message)) {
+    appendDebugLog({
+      phase: 'send',
+      messageType: message.type,
+      detail: describeMessage(message),
+    }).catch(() => {/* ignore */});
+  }
   return chrome.runtime.sendMessage(message);
 }
 

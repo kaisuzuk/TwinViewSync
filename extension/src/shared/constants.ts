@@ -1,6 +1,8 @@
 import type { ExtensionStorage, GridSettings, CompareOverlaySettings, BlinkSettings, SyncState } from './types';
 
 export const STORAGE_KEY = 'twinViewSync';
+export const DEBUG_LOG_KEY = 'twinViewSyncDebugLogs';
+export const DEBUG_LOG_LIMIT = 200;
 
 export const DEFAULT_GRID: GridSettings = {
   visible: false,

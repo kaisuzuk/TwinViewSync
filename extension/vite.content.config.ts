@@ -14,6 +14,8 @@ export default defineConfig({
         content: resolve(__dirname, 'src/content/content.ts'),
       },
       output: {
+        format: 'iife',
+        name: 'TwinViewSyncContent',
         entryFileNames: '[name].js',
         assetFileNames: 'assets/[name][extname]',
         inlineDynamicImports: true,

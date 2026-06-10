@@ -249,3 +249,19 @@ body {
 .btn--block {
   flex: 1;
 }
+
+/* ── Diagnostics ───────────────────────────────────────────────────────────── */
+.diag-log {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 8px;
+}

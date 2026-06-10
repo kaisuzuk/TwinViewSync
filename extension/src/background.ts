@@ -13,9 +13,29 @@ import type {
   CaptureTabMessage,
   CompareOverlayMessage,
 } from './shared/types';
-import { loadStorage, saveStorage, sendToTab } from './shared/messaging';
+import { appendDebugLog, loadStorage, saveStorage } from './shared/messaging';
+
+const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
+  'WINDOW_SCROLL',
+  'KEY_DOWN',
+  'KEY_UP',
+  'INPUT',
+  'CHANGE',
+  'SYNC_STATE_CHANGED',
+]);
+
+function shouldLogMessage(message: ExtensionMessage): boolean {
+  return DIAGNOSTIC_MESSAGE_TYPES.has(message.type);
+}
 
 async function ensureContentScript(tabId: number): Promise<boolean> {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    return true;
+  } catch {
+    // No current content-script receiver; inject below.
+  }
+
   try {
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: false },
@@ -27,10 +47,23 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
   }
 }
 
-async function sendToReadyTab(tabId: number, message: ExtensionMessage): Promise<void> {
+async function sendToReadyTab(tabId: number, message: ExtensionMessage): Promise<'sent' | 'sent-after-inject' | 'failed'> {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return 'sent';
+  } catch {
+    // The target tab may have been open before this extension build was loaded.
+  }
+
   const ready = await ensureContentScript(tabId);
-  if (!ready) return;
-  await sendToTab(tabId, message);
+  if (!ready) return 'failed';
+
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return 'sent-after-inject';
+  } catch {
+    return 'failed';
+  }
 }
 
 // ─── Relay logic ─────────────────────────────────────────────────────────────
@@ -75,20 +108,57 @@ chrome.runtime.onMessage.addListener(
     if (sourceTabId === undefined) return false;
 
     (async () => {
-      const storage = await loadStorage();
-      const { syncState } = storage;
+      try {
+        const storage = await loadStorage();
+        const { syncState } = storage;
 
-      if (!syncState.enabled) return;
+        if (!syncState.enabled) {
+          if (shouldLogMessage(message)) {
+            await appendDebugLog({
+              phase: 'relay',
+              messageType: message.type,
+              sourceTabId,
+              detail: 'skipped: sync disabled',
+            });
+          }
+          sendResponse({ skipped: true });
+          return;
+        }
 
-      const targets = resolveTargets(syncState, sourceTabId);
-      await Promise.all(
-        targets.map((tabId) =>
-          sendToReadyTab(tabId, { ...message, sourceTabId })
-        )
-      );
+        const targets = resolveTargets(syncState, sourceTabId);
+        const relayedMessage = { ...message, sourceTabId } as ExtensionMessage;
+        const results = await Promise.all(
+          targets.map(async (tabId) => ({
+            tabId,
+            result: await sendToReadyTab(tabId, relayedMessage),
+          }))
+        );
+        if (shouldLogMessage(message)) {
+          await appendDebugLog({
+            phase: 'relay',
+            messageType: message.type,
+            sourceTabId,
+            targetTabId: results[0]?.tabId,
+            detail: targets.length === 0
+              ? 'no target resolved'
+              : results.map(({ tabId, result }) => `${tabId}:${result}`).join(', '),
+          });
+        }
+        sendResponse({ success: true });
+      } catch (err) {
+        if (shouldLogMessage(message)) {
+          await appendDebugLog({
+            phase: 'error',
+            messageType: message.type,
+            sourceTabId,
+            detail: String(err),
+          });
+        }
+        sendResponse({ error: String(err) });
+      }
     })();
 
-    return false;
+    return true;
   }
 );
 
