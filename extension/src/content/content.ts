@@ -40,25 +40,40 @@ import { startDragSync, stopDragSync } from '../sync/dragSync';
 import { startScrollSync, stopScrollSync, applyScrollEvent } from '../sync/scrollSync';
 import { applyClickEvent } from '../sync/clickSync';
 
+declare global {
+  interface Window {
+    __twinViewSyncContentLoaded?: boolean;
+  }
+}
+
+if (!window.__twinViewSyncContentLoaded) {
+  window.__twinViewSyncContentLoaded = true;
+  bootstrap();
+}
+
 // ─── Loop prevention ─────────────────────────────────────────────────────────
 let applyingRemoteEvent = false;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-initCursorOverlay();
+function bootstrap(): void {
+  initCursorOverlay();
 
-// Load initial state and configure listeners accordingly
-loadStorage().then((storage) => {
-  if (storage.syncState.enabled) {
-    startAllSync();
-  }
-  if (storage.grid.visible) {
-    showGrid(storage.grid);
-  }
-  if (storage.compareOverlay.visible && storage.compareOverlay.imageDataUrl) {
-    setCompareImage(storage.compareOverlay.imageDataUrl, storage.compareOverlay.opacity);
-  }
-}).catch(() => {/* ignore */});
+  // Load initial state and configure listeners accordingly
+  loadStorage().then((storage) => {
+    if (storage.syncState.enabled) {
+      startAllSync();
+    }
+    if (storage.grid.visible) {
+      showGrid(storage.grid);
+    }
+    if (storage.compareOverlay.visible && storage.compareOverlay.imageDataUrl) {
+      setCompareImage(storage.compareOverlay.imageDataUrl, storage.compareOverlay.opacity);
+    }
+  }).catch(() => {/* ignore */});
+
+  chrome.runtime.onMessage.addListener(handleMessage);
+}
 
 // ─── Sync control ─────────────────────────────────────────────────────────────
 
@@ -146,7 +161,7 @@ function applyDragEvent(msg: DragMessage): void {
 
 // ─── Message handler ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
+function handleMessage(message: ExtensionMessage): void {
   switch (message.type) {
     // ── Pointer ──────────────────────────────────────────────────────────────
     case 'MOUSE_MOVE': {
@@ -248,4 +263,4 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
     default:
       break;
   }
-});
+}

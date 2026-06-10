@@ -43,6 +43,8 @@ let paused = false;
 
 async function broadcastToTab(tabId: number | null, message: object): Promise<void> {
   if (tabId === null) return;
+  const ready = await ensureContentScript(tabId);
+  if (!ready) return;
   try {
     await chrome.tabs.sendMessage(tabId, message);
   } catch {/* tab not ready */}
@@ -54,6 +56,23 @@ async function broadcastToBothTabs(message: object): Promise<void> {
     broadcastToTab(tabAId, message),
     broadcastToTab(tabBId, message),
   ]);
+}
+
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: ['content.js'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isPairReady(state: SyncState): boolean {
+  const { tabAId, tabBId } = state.pair;
+  return tabAId !== null && tabBId !== null && tabAId !== tabBId;
 }
 
 // ─── UI rendering ────────────────────────────────────────────────────────────
@@ -175,12 +194,26 @@ function renderAll(): void {
 
 async function init(): Promise<void> {
   storage = await loadStorage();
+  if (
+    storage.syncState.pair.tabAId !== null &&
+    storage.syncState.pair.tabAId === storage.syncState.pair.tabBId
+  ) {
+    storage.syncState.enabled = false;
+    storage.syncState.pair.tabBId = null;
+    storage.syncState.pair.tabBUrl = '';
+    storage.syncState.pair.tabBTitle = '';
+    await saveStorage(storage);
+  }
   renderAll();
 
   // ── Set Tab A ────────────────────────────────────────────────────────────
   $('set-tab-a').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
+    if (storage.syncState.pair.tabBId === tab.id) {
+      alert('Tab A and Tab B must be different tabs.');
+      return;
+    }
     storage.syncState.pair.tabAId = tab.id;
     storage.syncState.pair.tabAUrl = tab.url ?? '';
     storage.syncState.pair.tabATitle = tab.title ?? '';
@@ -192,6 +225,10 @@ async function init(): Promise<void> {
   $('set-tab-b').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
+    if (storage.syncState.pair.tabAId === tab.id) {
+      alert('Tab A and Tab B must be different tabs.');
+      return;
+    }
     storage.syncState.pair.tabBId = tab.id;
     storage.syncState.pair.tabBUrl = tab.url ?? '';
     storage.syncState.pair.tabBTitle = tab.title ?? '';
@@ -214,6 +251,11 @@ async function init(): Promise<void> {
 
   // ── Sync toggle ───────────────────────────────────────────────────────────
   $('sync-toggle').addEventListener('click', async () => {
+    if (!storage.syncState.enabled && !isPairReady(storage.syncState)) {
+      alert('Please set two different tabs before enabling sync.');
+      return;
+    }
+
     storage.syncState.enabled = !storage.syncState.enabled;
     paused = false;
     await saveStorage(storage);

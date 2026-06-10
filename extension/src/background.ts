@@ -15,6 +15,24 @@ import type {
 } from './shared/types';
 import { loadStorage, saveStorage, sendToTab } from './shared/messaging';
 
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: ['content.js'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function sendToReadyTab(tabId: number, message: ExtensionMessage): Promise<void> {
+  const ready = await ensureContentScript(tabId);
+  if (!ready) return;
+  await sendToTab(tabId, message);
+}
+
 // ─── Relay logic ─────────────────────────────────────────────────────────────
 
 /**
@@ -24,6 +42,7 @@ import { loadStorage, saveStorage, sendToTab } from './shared/messaging';
 function resolveTargets(state: SyncState, sourceTabId: number): number[] {
   const { tabAId, tabBId } = state.pair;
   if (tabAId === null || tabBId === null) return [];
+  if (tabAId === tabBId) return [];
 
   const isA = sourceTabId === tabAId;
   const isB = sourceTabId === tabBId;
@@ -64,7 +83,7 @@ chrome.runtime.onMessage.addListener(
       const targets = resolveTargets(syncState, sourceTabId);
       await Promise.all(
         targets.map((tabId) =>
-          sendToTab(tabId, { ...message, sourceTabId })
+          sendToReadyTab(tabId, { ...message, sourceTabId })
         )
       );
     })();
@@ -95,16 +114,24 @@ async function handleCapture(
     const targetTabId =
       message.overlayDirection === 'A_TO_B' ? tabBId : tabAId;
 
-    // Capture the source tab
+    // Capture the source tab. captureVisibleTab captures the visible tab in a
+    // window, so activate the requested source tab before taking the screenshot.
     const captureOptions: chrome.tabs.CaptureVisibleTabOptions = { format: 'png' };
+    const sourceTab = await chrome.tabs.get(sourceTabId);
+    const [previousActiveTab] = await chrome.tabs.query({
+      active: true,
+      windowId: sourceTab.windowId,
+    });
+    const previousActiveTabId = previousActiveTab?.id;
     let imageDataUrl: string;
 
     try {
-      imageDataUrl = await chrome.tabs.captureVisibleTab(captureOptions);
-    } catch {
-      // Fallback: activate the source tab temporarily to capture
       await chrome.tabs.update(sourceTabId, { active: true });
-      imageDataUrl = await chrome.tabs.captureVisibleTab(captureOptions);
+      imageDataUrl = await chrome.tabs.captureVisibleTab(sourceTab.windowId, captureOptions);
+    } finally {
+      if (previousActiveTabId !== undefined && previousActiveTabId !== sourceTabId) {
+        await chrome.tabs.update(previousActiveTabId, { active: true }).catch(() => {/* ignore */});
+      }
     }
 
     // Update storage
@@ -123,7 +150,7 @@ async function handleCapture(
       imageDataUrl,
       opacity: message.opacity,
     };
-    await sendToTab(targetTabId, overlayMsg);
+    await sendToReadyTab(targetTabId, overlayMsg);
 
     sendResponse({ success: true, imageDataUrl });
   } catch (err) {
