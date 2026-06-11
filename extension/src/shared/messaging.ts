@@ -13,6 +13,8 @@ const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
   'KEY_UP',
   'INPUT',
   'CHANGE',
+  'DRAG_START',
+  'DRAG_END',
   'SYNC_STATE_CHANGED',
 ]);
 
@@ -47,6 +49,9 @@ function describeMessage(message: ExtensionMessage): string {
     case 'INPUT':
     case 'CHANGE':
       return `target=${describeTarget(message.target)} valueLength=${message.value.length}`;
+    case 'DRAG_START':
+    case 'DRAG_END':
+      return `${message.pointerType ?? 'mouse'} x=${message.xRatio.toFixed(3)} y=${message.yRatio.toFixed(3)}`;
     case 'SYNC_STATE_CHANGED':
       return `enabled=${message.state.enabled} direction=${message.state.direction}`;
     default:

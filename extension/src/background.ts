@@ -25,6 +25,8 @@ const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
   'KEY_UP',
   'INPUT',
   'CHANGE',
+  'DRAG_START',
+  'DRAG_END',
   'SYNC_STATE_CHANGED',
 ]);
 

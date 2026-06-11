@@ -53,7 +53,7 @@ declare global {
   }
 }
 
-const CONTENT_VERSION = '2026-06-11-remote-button-release-v17';
+const CONTENT_VERSION = '2026-06-11-mobile-drag-v19';
 
 if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
   window.__twinViewSyncCleanup?.();
@@ -161,14 +161,43 @@ function applyWheelEvent(msg: WheelMessage): void {
 
 // ─── Apply drag event ────────────────────────────────────────────────────────
 
-function applyDragEvent(msg: DragMessage): void {
-  if (applyingRemoteEvent) return;
+let remoteDragTarget: Element | null = null;
 
+function applyDragEvent(msg: DragMessage): string {
+  if (applyingRemoteEvent) return 'skipped: already applying remote event';
   const x = msg.xRatio * window.innerWidth;
   const y = msg.yRatio * window.innerHeight;
+  const target = resolveDragTarget(msg, x, y);
+  const pointerType = msg.pointerType ?? 'mouse';
 
-  const target = document.elementFromPoint(x, y) ?? document.documentElement;
+  applyingRemoteEvent = true;
+  try {
+    if (pointerType === 'touch' || pointerType === 'pen') {
+      dispatchPointerDragEvent(target, msg, x, y, pointerType);
+      if (pointerType === 'touch') {
+        dispatchTouchDragEvent(target, msg, x, y);
+      }
+    } else {
+      dispatchMouseDragEvent(target, msg, x, y);
+    }
+  } finally {
+    applyingRemoteEvent = false;
+    if (msg.type === 'DRAG_END') {
+      remoteDragTarget = null;
+    }
+  }
 
+  return `applied ${pointerType} x=${msg.xRatio.toFixed(3)} y=${msg.yRatio.toFixed(3)}`;
+}
+
+function resolveDragTarget(msg: DragMessage, x: number, y: number): Element {
+  if (msg.type === 'DRAG_START' || !remoteDragTarget || !document.documentElement.contains(remoteDragTarget)) {
+    remoteDragTarget = document.elementFromPoint(x, y) ?? document.documentElement;
+  }
+  return remoteDragTarget;
+}
+
+function dispatchMouseDragEvent(target: Element, msg: DragMessage, x: number, y: number): void {
   const typeMap: Record<DragMessage['type'], string> = {
     DRAG_START: 'mousedown',
     DRAG_MOVE: 'mousemove',
@@ -189,10 +218,74 @@ function applyDragEvent(msg: DragMessage): void {
   };
   const event = new MouseEvent(eventType, init);
   Object.defineProperty(event, REMOTE_EVENT_FLAG, { value: true });
-
-  applyingRemoteEvent = true;
   target.dispatchEvent(event);
-  applyingRemoteEvent = false;
+}
+
+function dispatchPointerDragEvent(
+  target: Element,
+  msg: DragMessage,
+  x: number,
+  y: number,
+  pointerType: 'touch' | 'pen'
+): void {
+  if (typeof PointerEvent !== 'function') return;
+  const typeMap: Record<DragMessage['type'], string> = {
+    DRAG_START: 'pointerdown',
+    DRAG_MOVE: 'pointermove',
+    DRAG_END: 'pointerup',
+  };
+  const event = new PointerEvent(typeMap[msg.type], {
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y,
+    screenX: x,
+    screenY: y,
+    button: msg.button,
+    buttons: msg.buttons,
+    pointerId: msg.pointerId ?? 1,
+    pointerType,
+    isPrimary: true,
+    width: pointerType === 'touch' ? 8 : 1,
+    height: pointerType === 'touch' ? 8 : 1,
+    pressure: msg.type === 'DRAG_END' ? 0 : 0.5,
+    view: window,
+  });
+  Object.defineProperty(event, REMOTE_EVENT_FLAG, { value: true });
+  target.dispatchEvent(event);
+}
+
+function dispatchTouchDragEvent(target: Element, msg: DragMessage, x: number, y: number): void {
+  if (typeof Touch !== 'function' || typeof TouchEvent !== 'function') return;
+  const typeMap: Record<DragMessage['type'], string> = {
+    DRAG_START: 'touchstart',
+    DRAG_MOVE: 'touchmove',
+    DRAG_END: 'touchend',
+  };
+  const touch = new Touch({
+    identifier: msg.pointerId ?? 1,
+    target,
+    clientX: x,
+    clientY: y,
+    screenX: x,
+    screenY: y,
+    pageX: x + window.scrollX,
+    pageY: y + window.scrollY,
+    radiusX: 4,
+    radiusY: 4,
+    rotationAngle: 0,
+    force: msg.type === 'DRAG_END' ? 0 : 0.5,
+  });
+  const activeTouches = msg.type === 'DRAG_END' ? [] : [touch];
+  const event = new TouchEvent(typeMap[msg.type], {
+    bubbles: true,
+    cancelable: true,
+    touches: activeTouches,
+    targetTouches: activeTouches,
+    changedTouches: [touch],
+  });
+  Object.defineProperty(event, REMOTE_EVENT_FLAG, { value: true });
+  target.dispatchEvent(event);
 }
 
 // ─── Message handler ──────────────────────────────────────────────────────────
@@ -255,7 +348,11 @@ function handleMessage(message: ExtensionMessage): void {
     case 'DRAG_START':
     case 'DRAG_MOVE':
     case 'DRAG_END': {
-      applyDragEvent(message as DragMessage);
+      const msg = message as DragMessage;
+      const result = applyDragEvent(msg);
+      if (message.type !== 'DRAG_MOVE') {
+        logApply(msg, result);
+      }
       break;
     }
 
@@ -323,7 +420,7 @@ function handleMessage(message: ExtensionMessage): void {
 }
 
 function logApply(
-  message: PointerMessage | ScrollMessage | FormMessage | KeyboardMessage | ExtensionMessage,
+  message: PointerMessage | ScrollMessage | DragMessage | FormMessage | KeyboardMessage | ExtensionMessage,
   result?: string
 ): void {
   let detail: string = message.type;
@@ -341,6 +438,8 @@ function logApply(
     detail = `${message.pathname}${message.search}${message.hash}`;
   } else if (message.type === 'MOUSE_DOWN' || message.type === 'MOUSE_UP' || message.type === 'MOUSE_CLICK') {
     detail = `${message.target ? `target=${describeTarget(message.target)} ` : ''}x=${message.xRatio.toFixed(3)} y=${message.yRatio.toFixed(3)}`;
+  } else if (message.type === 'DRAG_START' || message.type === 'DRAG_END') {
+    detail = `${message.pointerType ?? 'mouse'} x=${message.xRatio.toFixed(3)} y=${message.yRatio.toFixed(3)}`;
   } else if (message.type === 'KEY_DOWN' || message.type === 'KEY_UP') {
     detail = `${message.key} code=${message.code} target=${describeTarget(message.target)}`;
   } else if (message.type === 'INPUT' || message.type === 'CHANGE') {

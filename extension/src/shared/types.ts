@@ -201,6 +201,8 @@ export interface DragMessage extends BaseMessage {
   yRatio: number;
   button: number;
   buttons: number;
+  pointerType?: 'mouse' | 'touch' | 'pen';
+  pointerId?: number;
 }
 
 // ─── Grid Message ────────────────────────────────────────────────────────────
