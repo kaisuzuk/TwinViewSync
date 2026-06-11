@@ -1,4 +1,11 @@
-import type { ExtensionStorage, GridSettings, CompareOverlaySettings, BlinkSettings, SyncState } from './types';
+import type {
+  ExtensionStorage,
+  GridSettings,
+  CompareOverlaySettings,
+  BlinkSettings,
+  DiffHighlightSettings,
+  SyncState,
+} from './types';
 
 export const STORAGE_KEY = 'twinViewSync';
 export const DEBUG_LOG_KEY = 'twinViewSyncDebugLogs';
@@ -25,6 +32,15 @@ export const DEFAULT_BLINK: BlinkSettings = {
   interval: 500,
 };
 
+export const DEFAULT_DIFF_HIGHLIGHT: DiffHighlightSettings = {
+  visible: false,
+  opacity: 0.75,
+  threshold: 32,
+  direction: 'A_TO_B',
+  referenceImageDataUrl: null,
+  targetImageDataUrl: null,
+};
+
 export const DEFAULT_SYNC_STATE: SyncState = {
   enabled: false,
   direction: 'A_TO_B',
@@ -43,17 +59,20 @@ export const DEFAULT_STORAGE: ExtensionStorage = {
   grid: DEFAULT_GRID,
   compareOverlay: DEFAULT_COMPARE_OVERLAY,
   blink: DEFAULT_BLINK,
+  diffHighlight: DEFAULT_DIFF_HIGHLIGHT,
 };
 
 // Overlay element IDs
 export const GHOST_CURSOR_ID = 'twin-view-sync-ghost-cursor';
 export const GRID_OVERLAY_ID = 'twin-view-sync-grid-overlay';
 export const COMPARE_OVERLAY_ID = 'twin-view-sync-compare-overlay';
+export const DIFF_HIGHLIGHT_ID = 'twin-view-sync-diff-highlight';
 export const RIPPLE_CONTAINER_ID = 'twin-view-sync-ripple-container';
 
 // Z-index layers
 export const Z_INDEX_GRID = 2147483645;
 export const Z_INDEX_COMPARE = 2147483646;
+export const Z_INDEX_DIFF = 2147483646;
 export const Z_INDEX_CURSOR = 2147483647;
 export const Z_INDEX_RIPPLE = 2147483647;
 

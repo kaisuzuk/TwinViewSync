@@ -20,6 +20,7 @@ import type {
   GridMessage,
   CompareOverlayMessage,
   BlinkMessage,
+  DiffHighlightMessage,
 } from '../shared/types';
 import { REMOTE_EVENT_FLAG } from '../shared/constants';
 import { appendDebugLog, loadStorage } from '../shared/messaging';
@@ -35,6 +36,11 @@ import {
   startBlink,
   stopBlink,
 } from '../overlay/compareOverlay';
+import {
+  setDiffHighlightImages,
+  showDiffHighlight,
+  hideDiffHighlight,
+} from '../overlay/diffHighlightOverlay';
 
 // Sync senders
 import { startPointerSync, stopPointerSync } from '../sync/pointerSync';
@@ -83,6 +89,15 @@ function bootstrap(): void {
       if (!storage.compareOverlay.visible) {
         hideCompareOverlay();
       }
+    }
+    if (storage.diffHighlight.referenceImageDataUrl && storage.diffHighlight.targetImageDataUrl) {
+      setDiffHighlightImages(
+        storage.diffHighlight.referenceImageDataUrl,
+        storage.diffHighlight.targetImageDataUrl,
+        storage.diffHighlight.opacity,
+        storage.diffHighlight.threshold,
+        storage.diffHighlight.visible
+      );
     }
   }).catch(() => {/* ignore */});
 
@@ -398,6 +413,39 @@ function handleMessage(message: ExtensionMessage): void {
     }
     case 'STOP_BLINK': {
       stopBlink();
+      break;
+    }
+
+    // ── Diff Highlight ──────────────────────────────────────────────────────
+    case 'SET_DIFF_IMAGE': {
+      const msg = message as DiffHighlightMessage;
+      if (
+        msg.referenceImageDataUrl &&
+        msg.targetImageDataUrl &&
+        msg.opacity !== undefined &&
+        msg.threshold !== undefined
+      ) {
+        setDiffHighlightImages(
+          msg.referenceImageDataUrl,
+          msg.targetImageDataUrl,
+          msg.opacity,
+          msg.threshold
+        );
+      }
+      break;
+    }
+    case 'SHOW_DIFF_HIGHLIGHT': {
+      const msg = message as DiffHighlightMessage;
+      showDiffHighlight(
+        msg.opacity,
+        msg.threshold,
+        msg.referenceImageDataUrl,
+        msg.targetImageDataUrl
+      );
+      break;
+    }
+    case 'HIDE_DIFF_HIGHLIGHT': {
+      hideDiffHighlight();
       break;
     }
 

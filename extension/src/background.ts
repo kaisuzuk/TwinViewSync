@@ -11,7 +11,9 @@ import type {
   ExtensionMessage,
   SyncState,
   CaptureTabMessage,
+  CaptureDiffMessage,
   CompareOverlayMessage,
+  DiffHighlightMessage,
 } from './shared/types';
 import { appendDebugLog, loadStorage, saveStorage } from './shared/messaging';
 
@@ -108,6 +110,10 @@ chrome.runtime.onMessage.addListener(
     if (message.type === 'CAPTURE_TAB') {
       handleCapture(message as CaptureTabMessage, sendResponse);
       return true; // async response
+    }
+    if (message.type === 'CAPTURE_DIFF') {
+      handleDiffCapture(message as CaptureDiffMessage, sendResponse);
+      return true;
     }
 
     // All other relay messages need a source tab
@@ -229,6 +235,93 @@ async function handleCapture(
     await sendToReadyTab(targetTabId, overlayMsg);
 
     sendResponse({ success: true, imageDataUrl });
+  } catch (err) {
+    sendResponse({ error: String(err) });
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function captureTabViewport(tabId: number): Promise<string> {
+  const captureOptions: chrome.tabs.CaptureVisibleTabOptions = { format: 'png' };
+  const tab = await chrome.tabs.get(tabId);
+  const [previousActiveTab] = await chrome.tabs.query({
+    active: true,
+    windowId: tab.windowId,
+  });
+  const previousActiveTabId = previousActiveTab?.id;
+
+  try {
+    await chrome.tabs.update(tabId, { active: true });
+    await delay(120);
+    return await chrome.tabs.captureVisibleTab(tab.windowId, captureOptions);
+  } finally {
+    if (previousActiveTabId !== undefined && previousActiveTabId !== tabId) {
+      await chrome.tabs.update(previousActiveTabId, { active: true }).catch(() => {/* ignore */});
+    }
+  }
+}
+
+async function handleDiffCapture(
+  message: CaptureDiffMessage,
+  sendResponse: (response: unknown) => void
+): Promise<void> {
+  try {
+    const storage = await loadStorage();
+    const { tabAId, tabBId } = storage.syncState.pair;
+
+    if (tabAId === null || tabBId === null) {
+      sendResponse({ error: 'Tabs not paired' });
+      return;
+    }
+
+    const sourceTabId = message.direction === 'A_TO_B' ? tabAId : tabBId;
+    const targetTabId = message.direction === 'A_TO_B' ? tabBId : tabAId;
+
+    const referenceImageDataUrl = await captureTabViewport(sourceTabId);
+    await sendToReadyTab(targetTabId, { type: 'HIDE_COMPARE_OVERLAY' });
+    await sendToReadyTab(targetTabId, { type: 'HIDE_DIFF_HIGHLIGHT' });
+    await delay(80);
+    const targetImageDataUrl = await captureTabViewport(targetTabId);
+
+    storage.diffHighlight = {
+      ...storage.diffHighlight,
+      visible: true,
+      direction: message.direction,
+      opacity: message.opacity,
+      threshold: message.threshold,
+      referenceImageDataUrl,
+      targetImageDataUrl,
+    };
+    await saveStorage(storage);
+
+    if (
+      storage.compareOverlay.visible &&
+      storage.compareOverlay.imageDataUrl &&
+      storage.compareOverlay.direction === message.direction
+    ) {
+      const overlayMsg: CompareOverlayMessage = {
+        type: 'SHOW_COMPARE_OVERLAY',
+        imageDataUrl: storage.compareOverlay.imageDataUrl,
+        opacity: storage.compareOverlay.opacity,
+      };
+      await sendToReadyTab(targetTabId, overlayMsg);
+    }
+
+    const diffMsg: DiffHighlightMessage = {
+      type: 'SET_DIFF_IMAGE',
+      referenceImageDataUrl,
+      targetImageDataUrl,
+      opacity: message.opacity,
+      threshold: message.threshold,
+    };
+    await sendToReadyTab(targetTabId, diffMsg);
+
+    sendResponse({ success: true, referenceImageDataUrl, targetImageDataUrl });
   } catch (err) {
     sendResponse({ error: String(err) });
   }

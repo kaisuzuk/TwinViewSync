@@ -19,6 +19,7 @@ Vue2画面とVue3画面のレイアウト最終確認を効率化するため、
 | グリッド表示 | ピクセルグリッドオーバーレイ（両タブへ表示） |
 | Compare Overlay | スクリーンショットを半透明で重ねて見た目比較 |
 | Blink Compare | 実画面とスクリーンショットを交互に表示して差分確認 |
+| Diff Highlight | ピクセル差分を自動検出し、対象タブへ赤色マスクで可視化 |
 
 ---
 
@@ -140,6 +141,20 @@ Vue2 画面を正解として Vue3 画面へ半透明で重ねることで、視
 
 ---
 
+## Diff Highlight
+
+参照タブと対象タブの表示領域をそれぞれキャプチャし、ピクセル差分が閾値を超えた箇所だけを対象タブ上に赤色マスクで表示します。
+
+1. **Diff Highlight** セクションで方向を選択（例：A → B）
+2. Opacity で差分マスクの濃さ、Threshold で検出感度を調整
+3. **Capture Diff** をクリックして2タブの表示領域を取得し、対象タブへ差分を表示
+4. **Show Diff / Hide Diff** で表示切替
+5. スクロール・リサイズ・状態変更後は **Capture Diff** で再キャプチャが必要
+
+> 実装：`chrome.tabs.captureVisibleTab()` で2タブの表示領域を取得し、対象タブの content script でCanvasへ正規化して差分マスクを生成します。
+
+---
+
 ## Grid Overlay
 
 ピクセルグリッドを両タブへ表示し、要素の整列・間隔確認に活用します。
@@ -178,7 +193,8 @@ extension/
     │   ├── cursorOverlay.ts    # ゴーストカーソル
     │   ├── clickRipple.ts      # クリック位置Rippleアニメーション
     │   ├── gridOverlay.ts      # グリッドオーバーレイ（Canvas）
-    │   └── compareOverlay.ts   # Compare Overlay & Blink Compare
+    │   ├── compareOverlay.ts   # Compare Overlay & Blink Compare
+    │   └── diffHighlightOverlay.ts # Diff Highlight（Canvas）
     ├── sync/
     │   ├── pointerSync.ts  # マウスポインタイベント送信
     │   ├── wheelSync.ts    # wheelイベント送信
@@ -253,6 +269,7 @@ let applyingRemoteEvent = false
 - **input type="file" は同期不可**（ブラウザのセキュリティ制限）
 - **ブラウザ保護対象イベント（passwordフィールド等）は同期不可**
 - **Compare Overlay は表示領域のみ対象**（スクロール後は再キャプチャが必要）
+- **Diff Highlight は表示領域のみ対象**（スクロール・リサイズ・状態変更後は再キャプチャが必要）
 - **click 同期を行うため、登録・削除・送信などの副作用がある操作は注意が必要**
 
 ### 部分的に対応可能な UI
@@ -272,7 +289,6 @@ let applyingRemoteEvent = false
 
 - **IME イベント同期**：`compositionstart` / `compositionupdate` / `compositionend`
 - **フルページキャプチャ**：スクロール連結によるページ全体のオーバーレイ
-- **差分ハイライト**：ピクセル差分の自動検出と可視化
 - **セッション記録・再生**：操作シーケンスの録画と再生
 - **iframe サポート**：`all_frames: true` への対応検討
 - **マルチウィンドウ対応**：異なるウィンドウ間でのペアリング

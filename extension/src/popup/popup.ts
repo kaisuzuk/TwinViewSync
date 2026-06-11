@@ -16,12 +16,15 @@ import type {
   GridSettings,
   CompareOverlaySettings,
   BlinkSettings,
+  DiffHighlightSettings,
   SyncDirection,
   GridMessage,
   CompareOverlayMessage,
   BlinkMessage,
+  DiffHighlightMessage,
   SyncStateChangedMessage,
   CaptureTabMessage,
+  CaptureDiffMessage,
   DebugLogEntry,
 } from '../shared/types';
 import { appendDebugLog, clearDebugLogs, loadDebugLogs, loadStorage, saveStorage } from '../shared/messaging';
@@ -187,12 +190,36 @@ function renderBlink(blink: BlinkSettings): void {
   }
 }
 
+function renderDiffHighlight(diff: DiffHighlightSettings): void {
+  const btn = $('diff-toggle');
+  const opacityRange = $<HTMLInputElement>('diff-opacity');
+  const opacityLabel = $('diff-opacity-val');
+  const thresholdRange = $<HTMLInputElement>('diff-threshold');
+  const thresholdLabel = $('diff-threshold-val');
+  const dirSelect = $<HTMLSelectElement>('diff-direction');
+
+  opacityRange.value = String(diff.opacity);
+  opacityLabel.textContent = `${Math.round(diff.opacity * 100)}%`;
+  thresholdRange.value = String(diff.threshold);
+  thresholdLabel.textContent = String(diff.threshold);
+  dirSelect.value = diff.direction;
+
+  if (diff.visible) {
+    btn.textContent = 'Hide Diff';
+    btn.classList.add('is-active');
+  } else {
+    btn.textContent = 'Show Diff';
+    btn.classList.remove('is-active');
+  }
+}
+
 function renderAll(): void {
   renderSyncState(storage.syncState);
   renderTabPair(storage.syncState);
   renderGrid(storage.grid);
   renderCompareOverlay(storage.compareOverlay);
   renderBlink(storage.blink);
+  renderDiffHighlight(storage.diffHighlight);
 }
 
 function formatLogEntry(entry: DebugLogEntry): string {
@@ -475,6 +502,90 @@ async function init(): Promise<void> {
     }
   });
 
+  // ── Diff highlight direction ─────────────────────────────────────────────
+  $<HTMLSelectElement>('diff-direction').addEventListener('change', async (e) => {
+    storage.diffHighlight.direction = (e.target as HTMLSelectElement).value as 'A_TO_B' | 'B_TO_A';
+    await saveStorage(storage);
+  });
+
+  // ── Diff highlight opacity ───────────────────────────────────────────────
+  $<HTMLInputElement>('diff-opacity').addEventListener('input', async (e) => {
+    storage.diffHighlight.opacity = parseFloat((e.target as HTMLInputElement).value);
+    $('diff-opacity-val').textContent = `${Math.round(storage.diffHighlight.opacity * 100)}%`;
+    await applyDiffHighlightUpdate();
+  });
+
+  // ── Diff highlight threshold ─────────────────────────────────────────────
+  $<HTMLInputElement>('diff-threshold').addEventListener('input', async (e) => {
+    storage.diffHighlight.threshold = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+    $('diff-threshold-val').textContent = String(storage.diffHighlight.threshold);
+    await applyDiffHighlightUpdate();
+  });
+
+  // ── Capture diff ─────────────────────────────────────────────────────────
+  $('diff-capture-btn').addEventListener('click', async () => {
+    const { tabAId, tabBId } = storage.syncState.pair;
+    if (!tabAId || !tabBId) {
+      alert('Please set both Tab A and Tab B first.');
+      return;
+    }
+
+    const captureMsg: CaptureDiffMessage = {
+      type: 'CAPTURE_DIFF',
+      direction: storage.diffHighlight.direction,
+      opacity: storage.diffHighlight.opacity,
+      threshold: storage.diffHighlight.threshold,
+    };
+    const result = await chrome.runtime.sendMessage(captureMsg) as {
+      success?: boolean;
+      error?: string;
+      referenceImageDataUrl?: string;
+      targetImageDataUrl?: string;
+    };
+
+    if (result?.success) {
+      storage.diffHighlight.referenceImageDataUrl = result.referenceImageDataUrl ?? null;
+      storage.diffHighlight.targetImageDataUrl = result.targetImageDataUrl ?? null;
+      storage.diffHighlight.visible = true;
+      await saveStorage(storage);
+      renderDiffHighlight(storage.diffHighlight);
+    } else {
+      alert(`Diff capture failed: ${result?.error ?? 'Unknown error'}`);
+    }
+  });
+
+  // ── Diff highlight toggle ────────────────────────────────────────────────
+  $('diff-toggle').addEventListener('click', async () => {
+    storage.diffHighlight.visible = !storage.diffHighlight.visible;
+    await saveStorage(storage);
+    renderDiffHighlight(storage.diffHighlight);
+
+    const targetTabId = getDiffTargetTabId();
+    if (storage.diffHighlight.visible) {
+      if (!storage.diffHighlight.referenceImageDataUrl || !storage.diffHighlight.targetImageDataUrl) {
+        alert('Please capture a diff before showing the highlight.');
+        storage.diffHighlight.visible = false;
+        await saveStorage(storage);
+        renderDiffHighlight(storage.diffHighlight);
+        return;
+      }
+
+      const msg: DiffHighlightMessage = {
+        type: 'SHOW_DIFF_HIGHLIGHT',
+        referenceImageDataUrl: storage.diffHighlight.referenceImageDataUrl,
+        targetImageDataUrl: storage.diffHighlight.targetImageDataUrl,
+        opacity: storage.diffHighlight.opacity,
+        threshold: storage.diffHighlight.threshold,
+      };
+      await broadcastToTab(targetTabId, msg);
+    } else {
+      const msg: DiffHighlightMessage = {
+        type: 'HIDE_DIFF_HIGHLIGHT',
+      };
+      await broadcastToTab(targetTabId, msg);
+    }
+  });
+
   // ── Diagnostics ───────────────────────────────────────────────────────────
   $('diag-probe').addEventListener('click', async () => {
     const { tabAId, tabBId } = storage.syncState.pair;
@@ -523,6 +634,32 @@ async function applyGridUpdate(): Promise<void> {
     settings: storage.grid,
   };
   await broadcastToBothTabs(msg);
+}
+
+function getDiffTargetTabId(): number | null {
+  return storage.diffHighlight.direction === 'A_TO_B'
+    ? storage.syncState.pair.tabBId
+    : storage.syncState.pair.tabAId;
+}
+
+async function applyDiffHighlightUpdate(): Promise<void> {
+  await saveStorage(storage);
+  if (
+    !storage.diffHighlight.visible ||
+    !storage.diffHighlight.referenceImageDataUrl ||
+    !storage.diffHighlight.targetImageDataUrl
+  ) {
+    return;
+  }
+
+  const msg: DiffHighlightMessage = {
+    type: 'SHOW_DIFF_HIGHLIGHT',
+    referenceImageDataUrl: storage.diffHighlight.referenceImageDataUrl,
+    targetImageDataUrl: storage.diffHighlight.targetImageDataUrl,
+    opacity: storage.diffHighlight.opacity,
+    threshold: storage.diffHighlight.threshold,
+  };
+  await broadcastToTab(getDiffTargetTabId(), msg);
 }
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────

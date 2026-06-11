@@ -127,6 +127,32 @@
       </div>
     </section>
 
+    <!-- Diff Highlight -->
+    <section class="section">
+      <h2 class="section-title">Diff Highlight</h2>
+      <div class="control-row">
+        <label class="control-label">Direction</label>
+        <select id="diff-direction" class="select">
+          <option value="A_TO_B">A → B</option>
+          <option value="B_TO_A">B → A</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label">Opacity</label>
+        <input id="diff-opacity" type="range" min="0" max="1" step="0.05" value="0.75" class="slider" />
+        <span id="diff-opacity-val" class="val-label">75%</span>
+      </div>
+      <div class="control-row">
+        <label class="control-label">Threshold</label>
+        <input id="diff-threshold" type="range" min="0" max="255" step="1" value="32" class="slider" />
+        <span id="diff-threshold-val" class="val-label">32</span>
+      </div>
+      <div class="btn-row">
+        <button id="diff-capture-btn" class="btn btn--secondary">Capture Diff</button>
+        <button id="diff-toggle" class="btn btn--secondary">Show Diff</button>
+      </div>
+    </section>
+
     <!-- Diagnostics -->
     <section class="section">
       <h2 class="section-title">Diagnostics</h2>

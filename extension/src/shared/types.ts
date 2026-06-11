@@ -42,12 +42,23 @@ export interface BlinkSettings {
   interval: number;
 }
 
+// ─── Diff Highlight Settings ────────────────────────────────────────────────
+export interface DiffHighlightSettings {
+  visible: boolean;
+  opacity: number;
+  threshold: number;
+  direction: 'A_TO_B' | 'B_TO_A';
+  referenceImageDataUrl: string | null;
+  targetImageDataUrl: string | null;
+}
+
 // ─── Extension Storage ───────────────────────────────────────────────────────
 export interface ExtensionStorage {
   syncState: SyncState;
   grid: GridSettings;
   compareOverlay: CompareOverlaySettings;
   blink: BlinkSettings;
+  diffHighlight: DiffHighlightSettings;
 }
 
 // ─── Diagnostics ────────────────────────────────────────────────────────────
@@ -89,6 +100,10 @@ export type MessageType =
   | 'SET_COMPARE_IMAGE'
   | 'START_BLINK'
   | 'STOP_BLINK'
+  | 'SET_DIFF_IMAGE'
+  | 'SHOW_DIFF_HIGHLIGHT'
+  | 'HIDE_DIFF_HIGHLIGHT'
+  | 'CAPTURE_DIFF'
   | 'SYNC_STATE_CHANGED'
   | 'CAPTURE_TAB'
   | 'PING';
@@ -225,6 +240,15 @@ export interface BlinkMessage extends BaseMessage {
   imageDataUrl?: string;
 }
 
+// ─── Diff Highlight Message ─────────────────────────────────────────────────
+export interface DiffHighlightMessage extends BaseMessage {
+  type: 'SET_DIFF_IMAGE' | 'SHOW_DIFF_HIGHLIGHT' | 'HIDE_DIFF_HIGHLIGHT';
+  referenceImageDataUrl?: string;
+  targetImageDataUrl?: string;
+  opacity?: number;
+  threshold?: number;
+}
+
 // ─── Sync State Changed Message ──────────────────────────────────────────────
 export interface SyncStateChangedMessage extends BaseMessage {
   type: 'SYNC_STATE_CHANGED';
@@ -237,6 +261,14 @@ export interface CaptureTabMessage extends BaseMessage {
   targetTabId: number;
   overlayDirection: 'A_TO_B' | 'B_TO_A';
   opacity: number;
+}
+
+// ─── Capture Diff Message ───────────────────────────────────────────────────
+export interface CaptureDiffMessage extends BaseMessage {
+  type: 'CAPTURE_DIFF';
+  direction: 'A_TO_B' | 'B_TO_A';
+  opacity: number;
+  threshold: number;
 }
 
 // ─── Ping Message ───────────────────────────────────────────────────────────
@@ -256,6 +288,8 @@ export type ExtensionMessage =
   | GridMessage
   | CompareOverlayMessage
   | BlinkMessage
+  | DiffHighlightMessage
   | SyncStateChangedMessage
   | CaptureTabMessage
+  | CaptureDiffMessage
   | PingMessage;

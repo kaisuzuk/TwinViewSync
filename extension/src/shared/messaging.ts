@@ -123,6 +123,7 @@ export async function loadStorage(): Promise<ExtensionStorage> {
     grid: { ...DEFAULT_STORAGE.grid, ...stored.grid },
     compareOverlay: { ...DEFAULT_STORAGE.compareOverlay, ...stored.compareOverlay },
     blink: { ...DEFAULT_STORAGE.blink, ...stored.blink },
+    diffHighlight: { ...DEFAULT_STORAGE.diffHighlight, ...stored.diffHighlight },
   };
 }
 
