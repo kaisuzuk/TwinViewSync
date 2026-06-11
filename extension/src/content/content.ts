@@ -21,9 +21,10 @@ import type {
   CompareOverlayMessage,
   BlinkMessage,
   DiffHighlightMessage,
+  ClearVisualOverlaysMessage,
 } from '../shared/types';
 import { REMOTE_EVENT_FLAG } from '../shared/constants';
-import { appendDebugLog, loadStorage } from '../shared/messaging';
+import { appendDebugLog, loadStorage, sendToBackground } from '../shared/messaging';
 
 // Overlay
 import { initCursorOverlay, moveCursor } from '../overlay/cursorOverlay';
@@ -33,6 +34,7 @@ import {
   setCompareImage,
   showCompareOverlay,
   hideCompareOverlay,
+  removeCompareOverlay,
   startBlink,
   stopBlink,
 } from '../overlay/compareOverlay';
@@ -40,6 +42,7 @@ import {
   setDiffHighlightImages,
   showDiffHighlight,
   hideDiffHighlight,
+  removeDiffHighlight,
 } from '../overlay/diffHighlightOverlay';
 
 // Sync senders
@@ -70,6 +73,8 @@ if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
 
 // ─── Loop prevention ─────────────────────────────────────────────────────────
 let applyingRemoteEvent = false;
+let lastVisualOverlayHref = window.location.href;
+let visualOverlayUrlTimer: number | null = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -102,8 +107,10 @@ function bootstrap(): void {
   }).catch(() => {/* ignore */});
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+  startVisualOverlayUrlWatcher();
   window.__twinViewSyncCleanup = () => {
     stopAllSync();
+    stopVisualOverlayUrlWatcher();
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
 }
@@ -140,6 +147,50 @@ function stopAllSync(): void {
   stopScrollSync();
   stopLocationSync();
   stopInputSync();
+}
+
+// ─── Visual overlay URL invalidation ────────────────────────────────────────
+
+function clearVisualOverlaysLocally(): void {
+  stopBlink();
+  removeCompareOverlay();
+  removeDiffHighlight();
+}
+
+function notifyVisualOverlayUrlChange(): void {
+  const msg: ClearVisualOverlaysMessage = {
+    type: 'CLEAR_VISUAL_OVERLAYS',
+    reason: 'url-change',
+    href: window.location.href,
+  };
+  sendToBackground(msg).catch(() => {/* ignore */});
+}
+
+function maybeClearVisualOverlaysForUrlChange(): void {
+  if (window.location.href === lastVisualOverlayHref) return;
+  lastVisualOverlayHref = window.location.href;
+  clearVisualOverlaysLocally();
+  notifyVisualOverlayUrlChange();
+}
+
+function onVisualOverlayLocationEvent(): void {
+  window.setTimeout(maybeClearVisualOverlaysForUrlChange, 0);
+}
+
+function startVisualOverlayUrlWatcher(): void {
+  lastVisualOverlayHref = window.location.href;
+  window.addEventListener('popstate', onVisualOverlayLocationEvent);
+  window.addEventListener('hashchange', onVisualOverlayLocationEvent);
+  visualOverlayUrlTimer = window.setInterval(maybeClearVisualOverlaysForUrlChange, 250);
+}
+
+function stopVisualOverlayUrlWatcher(): void {
+  window.removeEventListener('popstate', onVisualOverlayLocationEvent);
+  window.removeEventListener('hashchange', onVisualOverlayLocationEvent);
+  if (visualOverlayUrlTimer !== null) {
+    window.clearInterval(visualOverlayUrlTimer);
+    visualOverlayUrlTimer = null;
+  }
 }
 
 // ─── Apply wheel event ───────────────────────────────────────────────────────
@@ -446,6 +497,10 @@ function handleMessage(message: ExtensionMessage): void {
     }
     case 'HIDE_DIFF_HIGHLIGHT': {
       hideDiffHighlight();
+      break;
+    }
+    case 'CLEAR_VISUAL_OVERLAYS': {
+      clearVisualOverlaysLocally();
       break;
     }
 

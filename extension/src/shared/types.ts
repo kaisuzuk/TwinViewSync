@@ -104,6 +104,7 @@ export type MessageType =
   | 'SHOW_DIFF_HIGHLIGHT'
   | 'HIDE_DIFF_HIGHLIGHT'
   | 'CAPTURE_DIFF'
+  | 'CLEAR_VISUAL_OVERLAYS'
   | 'SYNC_STATE_CHANGED'
   | 'CAPTURE_TAB'
   | 'PING';
@@ -271,6 +272,13 @@ export interface CaptureDiffMessage extends BaseMessage {
   threshold: number;
 }
 
+// ─── Clear Visual Overlays Message ──────────────────────────────────────────
+export interface ClearVisualOverlaysMessage extends BaseMessage {
+  type: 'CLEAR_VISUAL_OVERLAYS';
+  reason: 'url-change';
+  href?: string;
+}
+
 // ─── Ping Message ───────────────────────────────────────────────────────────
 export interface PingMessage extends BaseMessage {
   type: 'PING';
@@ -292,4 +300,5 @@ export type ExtensionMessage =
   | SyncStateChangedMessage
   | CaptureTabMessage
   | CaptureDiffMessage
+  | ClearVisualOverlaysMessage
   | PingMessage;

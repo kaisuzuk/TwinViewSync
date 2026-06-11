@@ -14,6 +14,7 @@ import type {
   CaptureDiffMessage,
   CompareOverlayMessage,
   DiffHighlightMessage,
+  ClearVisualOverlaysMessage,
 } from './shared/types';
 import { appendDebugLog, loadStorage, saveStorage } from './shared/messaging';
 
@@ -100,6 +101,15 @@ function resolveTargets(state: SyncState, sourceTabId: number): number[] {
   return [];
 }
 
+function resolvePairTabs(state: SyncState): number[] {
+  const { tabAId, tabBId } = state.pair;
+  return [tabAId, tabBId].filter((tabId): tabId is number => tabId !== null);
+}
+
+function isPairedTab(state: SyncState, tabId: number): boolean {
+  return state.pair.tabAId === tabId || state.pair.tabBId === tabId;
+}
+
 // ─── Message handler ─────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener(
@@ -123,6 +133,15 @@ chrome.runtime.onMessage.addListener(
       try {
         const storage = await loadStorage();
         const { syncState } = storage;
+
+        if (message.type === 'CLEAR_VISUAL_OVERLAYS') {
+          const cleared = await clearVisualOverlaysForPairedTab(
+            sourceTabId,
+            message as ClearVisualOverlaysMessage
+          );
+          sendResponse({ success: cleared });
+          return;
+        }
 
         if (!syncState.enabled) {
           if (shouldLogMessage(message)) {
@@ -327,7 +346,58 @@ async function handleDiffCapture(
   }
 }
 
+async function clearVisualOverlaysForPairedTab(
+  sourceTabId: number,
+  message: ClearVisualOverlaysMessage
+): Promise<boolean> {
+  const storage = await loadStorage();
+  if (!isPairedTab(storage.syncState, sourceTabId)) return false;
+
+  storage.compareOverlay = {
+    ...storage.compareOverlay,
+    visible: false,
+    imageDataUrl: null,
+  };
+  storage.blink = {
+    ...storage.blink,
+    enabled: false,
+  };
+  storage.diffHighlight = {
+    ...storage.diffHighlight,
+    visible: false,
+    referenceImageDataUrl: null,
+    targetImageDataUrl: null,
+  };
+  await saveStorage(storage);
+
+  await Promise.all(
+    resolvePairTabs(storage.syncState).map((tabId) => sendToReadyTab(tabId, message))
+  );
+  await appendDebugLog({
+    phase: 'state',
+    messageType: 'CLEAR_VISUAL_OVERLAYS',
+    sourceTabId,
+    detail: `cleared: ${message.reason}${message.href ? ` ${message.href}` : ''}`,
+  });
+  return true;
+}
+
 // ─── Tab removal cleanup ──────────────────────────────────────────────────────
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (!changeInfo.url) return;
+
+  (async () => {
+    const storage = await loadStorage();
+    if (!isPairedTab(storage.syncState, tabId)) return;
+
+    await clearVisualOverlaysForPairedTab(tabId, {
+      type: 'CLEAR_VISUAL_OVERLAYS',
+      reason: 'url-change',
+      href: changeInfo.url,
+    });
+  })().catch(() => {/* ignore */});
+});
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   const storage = await loadStorage();
