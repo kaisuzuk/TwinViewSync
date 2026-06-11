@@ -16,7 +16,11 @@ import type {
 import { appendDebugLog, loadStorage, saveStorage } from './shared/messaging';
 
 const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
+  'MOUSE_DOWN',
+  'MOUSE_UP',
+  'MOUSE_CLICK',
   'WINDOW_SCROLL',
+  'LOCATION_CHANGE',
   'KEY_DOWN',
   'KEY_UP',
   'INPUT',

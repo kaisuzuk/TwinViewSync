@@ -4,7 +4,11 @@ import type { DebugLogEntry } from './types';
 import { DEBUG_LOG_KEY, DEBUG_LOG_LIMIT, DEFAULT_STORAGE, STORAGE_KEY } from './constants';
 
 const DIAGNOSTIC_MESSAGE_TYPES = new Set<string>([
+  'MOUSE_DOWN',
+  'MOUSE_UP',
+  'MOUSE_CLICK',
   'WINDOW_SCROLL',
+  'LOCATION_CHANGE',
   'KEY_DOWN',
   'KEY_UP',
   'INPUT',
@@ -22,12 +26,21 @@ function describeMessage(message: ExtensionMessage): string {
     const className = target.className
       ? `.${target.className.trim().split(/\s+/).slice(0, 3).join('.')}`
       : '';
-    return `${target.tagName}${id}${className}`;
+    const text = 'text' in target && typeof target.text === 'string' && target.text
+      ? ` text="${target.text}"`
+      : '';
+    return `${target.tagName}${id}${className}${text}`;
   };
 
   switch (message.type) {
+    case 'MOUSE_DOWN':
+    case 'MOUSE_UP':
+    case 'MOUSE_CLICK':
+      return `${message.target ? `target=${describeTarget(message.target)} ` : ''}x=${message.xRatio.toFixed(3)} y=${message.yRatio.toFixed(3)}`;
     case 'WINDOW_SCROLL':
       return `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} axis=${message.scrollAxis ?? '-'} idx=${message.scrollableIndex ?? '-'} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+    case 'LOCATION_CHANGE':
+      return `${message.pathname}${message.search}${message.hash}`;
     case 'KEY_DOWN':
     case 'KEY_UP':
       return `${message.key} code=${message.code} target=${describeTarget(message.target)}`;

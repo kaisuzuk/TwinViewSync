@@ -13,6 +13,7 @@ import type {
   PointerMessage,
   WheelMessage,
   ScrollMessage,
+  LocationMessage,
   DragMessage,
   FormMessage,
   KeyboardMessage,
@@ -40,6 +41,7 @@ import { startPointerSync, stopPointerSync } from '../sync/pointerSync';
 import { startWheelSync, stopWheelSync } from '../sync/wheelSync';
 import { startDragSync, stopDragSync } from '../sync/dragSync';
 import { startScrollSync, stopScrollSync, applyScrollEvent } from '../sync/scrollSync';
+import { startLocationSync, stopLocationSync, applyLocationChange } from '../sync/locationSync';
 import { applyClickEvent } from '../sync/clickSync';
 import { startInputSync, stopInputSync, applyFormEvent, applyKeyboardEvent } from '../sync/inputSync';
 
@@ -51,7 +53,7 @@ declare global {
   }
 }
 
-const CONTENT_VERSION = '2026-06-11-scroll-target-v8';
+const CONTENT_VERSION = '2026-06-11-remote-button-release-v17';
 
 if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
   window.__twinViewSyncCleanup?.();
@@ -112,6 +114,7 @@ function startAllSync(): void {
   startWheelSync();
   startDragSync();
   startScrollSync();
+  startLocationSync();
   startInputSync();
 }
 
@@ -120,6 +123,7 @@ function stopAllSync(): void {
   stopWheelSync();
   stopDragSync();
   stopScrollSync();
+  stopLocationSync();
   stopInputSync();
 }
 
@@ -211,7 +215,7 @@ function handleMessage(message: ExtensionMessage): void {
       if (message.type === 'MOUSE_CLICK' || message.type === 'MOUSE_DBLCLICK') {
         showRipple(msg.xRatio, msg.yRatio);
       }
-      applyClickEvent(msg);
+      logApply(msg, applyClickEvent(msg));
       break;
     }
 
@@ -225,6 +229,11 @@ function handleMessage(message: ExtensionMessage): void {
     case 'WINDOW_SCROLL': {
       const msg = message as ScrollMessage;
       logApply(msg, applyScrollEvent(msg));
+      break;
+    }
+    case 'LOCATION_CHANGE': {
+      const msg = message as LocationMessage;
+      logApply(msg, applyLocationChange(msg));
       break;
     }
 
@@ -314,7 +323,7 @@ function handleMessage(message: ExtensionMessage): void {
 }
 
 function logApply(
-  message: ScrollMessage | FormMessage | KeyboardMessage | ExtensionMessage,
+  message: PointerMessage | ScrollMessage | FormMessage | KeyboardMessage | ExtensionMessage,
   result?: string
 ): void {
   let detail: string = message.type;
@@ -328,6 +337,10 @@ function logApply(
 
   if (message.type === 'WINDOW_SCROLL') {
     detail = `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} axis=${message.scrollAxis ?? '-'} idx=${message.scrollableIndex ?? '-'} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+  } else if (message.type === 'LOCATION_CHANGE') {
+    detail = `${message.pathname}${message.search}${message.hash}`;
+  } else if (message.type === 'MOUSE_DOWN' || message.type === 'MOUSE_UP' || message.type === 'MOUSE_CLICK') {
+    detail = `${message.target ? `target=${describeTarget(message.target)} ` : ''}x=${message.xRatio.toFixed(3)} y=${message.yRatio.toFixed(3)}`;
   } else if (message.type === 'KEY_DOWN' || message.type === 'KEY_UP') {
     detail = `${message.key} code=${message.code} target=${describeTarget(message.target)}`;
   } else if (message.type === 'INPUT' || message.type === 'CHANGE') {

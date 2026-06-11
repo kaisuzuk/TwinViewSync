@@ -73,6 +73,7 @@ export type MessageType =
   | 'CONTEXT_MENU'
   | 'WHEEL'
   | 'WINDOW_SCROLL'
+  | 'LOCATION_CHANGE'
   | 'INPUT'
   | 'CHANGE'
   | 'KEY_DOWN'
@@ -103,6 +104,7 @@ export interface PointerMessage extends BaseMessage {
   type: 'MOUSE_MOVE' | 'MOUSE_DOWN' | 'MOUSE_UP' | 'MOUSE_CLICK' | 'MOUSE_DBLCLICK' | 'CONTEXT_MENU';
   xRatio: number;
   yRatio: number;
+  target?: TargetHint;
   button: number;
   buttons: number;
   ctrlKey: boolean;
@@ -135,6 +137,15 @@ export interface ScrollMessage extends BaseMessage {
   scrollAxis?: 'x' | 'y' | 'both';
 }
 
+// ─── Location Message ───────────────────────────────────────────────────────
+export interface LocationMessage extends BaseMessage {
+  type: 'LOCATION_CHANGE';
+  pathname: string;
+  search: string;
+  hash: string;
+  href: string;
+}
+
 // ─── DOM Target Hint ────────────────────────────────────────────────────────
 export interface TargetHint {
   xRatio: number;
@@ -150,6 +161,8 @@ export interface TargetHint {
   elementType: string;
   ariaLabel: string;
   placeholder: string;
+  role?: string;
+  text?: string;
 }
 
 // ─── Form Messages ──────────────────────────────────────────────────────────
@@ -234,6 +247,7 @@ export type ExtensionMessage =
   | PointerMessage
   | WheelMessage
   | ScrollMessage
+  | LocationMessage
   | FormMessage
   | KeyboardMessage
   | DragMessage
