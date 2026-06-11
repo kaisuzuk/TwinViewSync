@@ -27,7 +27,7 @@ function describeMessage(message: ExtensionMessage): string {
 
   switch (message.type) {
     case 'WINDOW_SCROLL':
-      return `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+      return `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} axis=${message.scrollAxis ?? '-'} idx=${message.scrollableIndex ?? '-'} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
     case 'KEY_DOWN':
     case 'KEY_UP':
       return `${message.key} code=${message.code} target=${describeTarget(message.target)}`;

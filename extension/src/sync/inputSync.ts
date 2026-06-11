@@ -42,6 +42,10 @@ function buildTargetHint(target: Element | null): TargetHint {
   return {
     xRatio: window.innerWidth > 0 ? x / window.innerWidth : 0,
     yRatio: window.innerHeight > 0 ? y / window.innerHeight : 0,
+    rectLeftRatio: window.innerWidth > 0 ? rect.left / window.innerWidth : 0,
+    rectTopRatio: window.innerHeight > 0 ? rect.top / window.innerHeight : 0,
+    rectWidthRatio: window.innerWidth > 0 ? rect.width / window.innerWidth : 0,
+    rectHeightRatio: window.innerHeight > 0 ? rect.height / window.innerHeight : 0,
     tagName: el.tagName,
     id: el.id,
     className: typeof el.className === 'string' ? el.className : '',

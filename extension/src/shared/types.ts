@@ -131,12 +131,18 @@ export interface ScrollMessage extends BaseMessage {
   scrollYRatio: number;
   targetKind?: 'window' | 'element';
   target?: TargetHint;
+  scrollableIndex?: number;
+  scrollAxis?: 'x' | 'y' | 'both';
 }
 
 // ─── DOM Target Hint ────────────────────────────────────────────────────────
 export interface TargetHint {
   xRatio: number;
   yRatio: number;
+  rectLeftRatio?: number;
+  rectTopRatio?: number;
+  rectWidthRatio?: number;
+  rectHeightRatio?: number;
   tagName: string;
   id: string;
   className: string;

@@ -51,7 +51,7 @@ declare global {
   }
 }
 
-const CONTENT_VERSION = '2026-06-11-overlay-restore-v6';
+const CONTENT_VERSION = '2026-06-11-scroll-target-v8';
 
 if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
   window.__twinViewSyncCleanup?.();
@@ -327,7 +327,7 @@ function logApply(
   };
 
   if (message.type === 'WINDOW_SCROLL') {
-    detail = `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
+    detail = `${message.targetKind ?? 'window'}${message.target ? ` target=${describeTarget(message.target)}` : ''} axis=${message.scrollAxis ?? '-'} idx=${message.scrollableIndex ?? '-'} x=${message.scrollXRatio.toFixed(3)} y=${message.scrollYRatio.toFixed(3)}`;
   } else if (message.type === 'KEY_DOWN' || message.type === 'KEY_UP') {
     detail = `${message.key} code=${message.code} target=${describeTarget(message.target)}`;
   } else if (message.type === 'INPUT' || message.type === 'CHANGE') {
