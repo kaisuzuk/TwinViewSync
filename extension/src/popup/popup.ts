@@ -378,6 +378,7 @@ async function init(): Promise<void> {
       const msg: CompareOverlayMessage = {
         type: 'SHOW_COMPARE_OVERLAY',
         opacity: storage.compareOverlay.opacity,
+        imageDataUrl: storage.compareOverlay.imageDataUrl ?? undefined,
       };
       await broadcastToTab(targetTabId, msg);
     }
@@ -421,9 +422,18 @@ async function init(): Promise<void> {
       : storage.syncState.pair.tabAId;
 
     if (storage.compareOverlay.visible) {
+      if (!storage.compareOverlay.imageDataUrl) {
+        alert('Please capture a reference before showing the overlay.');
+        storage.compareOverlay.visible = false;
+        await saveStorage(storage);
+        renderCompareOverlay(storage.compareOverlay);
+        return;
+      }
+
       const msg: CompareOverlayMessage = {
         type: 'SHOW_COMPARE_OVERLAY',
         opacity: storage.compareOverlay.opacity,
+        imageDataUrl: storage.compareOverlay.imageDataUrl,
       };
       await broadcastToTab(targetTabId, msg);
     } else {

@@ -51,7 +51,7 @@ declare global {
   }
 }
 
-const CONTENT_VERSION = '2026-06-11-target-diagnostics-v5';
+const CONTENT_VERSION = '2026-06-11-overlay-restore-v6';
 
 if (window.__twinViewSyncContentVersion !== CONTENT_VERSION) {
   window.__twinViewSyncCleanup?.();
@@ -76,8 +76,11 @@ function bootstrap(): void {
     if (storage.grid.visible) {
       showGrid(storage.grid);
     }
-    if (storage.compareOverlay.visible && storage.compareOverlay.imageDataUrl) {
+    if (storage.compareOverlay.imageDataUrl) {
       setCompareImage(storage.compareOverlay.imageDataUrl, storage.compareOverlay.opacity);
+      if (!storage.compareOverlay.visible) {
+        hideCompareOverlay();
+      }
     }
   }).catch(() => {/* ignore */});
 
@@ -273,7 +276,7 @@ function handleMessage(message: ExtensionMessage): void {
     }
     case 'SHOW_COMPARE_OVERLAY': {
       const msg = message as CompareOverlayMessage;
-      showCompareOverlay(msg.opacity);
+      showCompareOverlay(msg.opacity, msg.imageDataUrl);
       break;
     }
     case 'HIDE_COMPARE_OVERLAY': {
